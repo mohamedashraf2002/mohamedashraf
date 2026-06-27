@@ -1,0 +1,296 @@
+Task When Select Line Show This Only Button Depend On This Line 
+
+
+1- Hide all Buttons and Frist Select This Line 
+[ExtensionOf(formStr(HcmDiscussion))]
+final class CS_HcmDiscussion_FormRun_Extension
+{
+    public void run()
+    {
+        next run();
+
+        this.updatePrintButtons();
+    }
+
+    public void updatePrintButtons()
+    {
+        HcmDiscussion discussion = HcmDiscussion_ds.cursor();
+        HcmDiscussionType discussionType;
+        CSParameters parameter;
+
+        discussionType = HcmDiscussionType::find(discussion.DiscussionType);
+        parameter      = CSParameters::find();
+
+        PrintWrittenjobreport.visible(false);
+        printSpecializedJobsreport.visible(false);
+        printCraftAndSupportEvaluation.visible(false);
+        printAdminOnMe.visible(false);
+
+        if (!discussionType || !parameter)
+            return;
+
+        if (discussionType.Description == parameter.Writtenjobs)
+            PrintWrittenjobreport.visible(true);
+        else if (discussionType.Description == parameter.SpecializedJobs)
+            printSpecializedJobsreport.visible(true);
+        else if (discussionType.Description == parameter.CraftAndSupport)
+            printCraftAndSupportEvaluation.visible(true);
+        else if (discussionType.Description == parameter.CS_Administrative)
+            printAdminOnMe.visible(true);
+    }
+
+}                                                                                                                         2- Update DS
+[ExtensionOf(formDataSourceStr(HcmDiscussion, HcmDiscussion))]
+final class CS_HcmDiscussion_DS_Extension
+{
+    public int active()
+    {
+        int ret = next active();
+
+        element.updatePrintButtons();
+
+        return ret;
+    }
+
+}                                                                                                                                 
+3- Want Show In Contract Nmae Of Worker Lam Select This Line When Filter In Report 
+class Writtenjobs_Controller extends SrsReportRunController
+{
+    public static void main(Args _args)
+    {
+        Writtenjobs_Controller controller = new Writtenjobs_Controller();
+
+        controller.parmArgs(_args);
+        controller.parmReportName(ssrsReportStr(WrittenjobsReporrt, writenjop));
+        controller.startOperation();
+    }
+
+    protected void prePromptModifyContract()
+    {
+        super();
+
+        Writtenjobs_Contract contract =
+            this.parmReportContract().parmRdpContract() as Writtenjobs_Contract;
+
+        Args reportArgs = this.parmArgs();
+
+        if (reportArgs && reportArgs.record())
+        {
+            HcmDiscussion discussion = reportArgs.record();
+            HcmWorker worker = HcmWorker::find(discussion.Worker);
+
+            if (worker)
+            {
+                contract.parmWorkerName(worker.Person);
+            }
+        }
+    }
+
+}                                                                                                                                       
+4- The Contract Class (Lam use the DirPartyRecId is send id but show name for user is Extend Data Type )
+
+[DataContract, SysOperationContractProcessing(classStr(Writtenjobs_UIBuilder))]
+class Writtenjobs_Contract
+{
+
+    DirPartyRecId worker;
+    HcmPerfPeriodId periodName;
+    StartDate startDate;
+    HcmPerfPeriodEndDate endDate;
+
+
+ 
+
+    [DataMemberAttribute,SysOperationLabelAttribute("Worker"),
+        SysOperationDisplayOrderAttribute("1")]
+        public DirPartyRecId parmWorkerName(DirPartyRecId w=worker)
+    {
+        worker=w;
+        return worker;
+    }
+
+}
+
+5- Data Provider Class 
+
+[SRSReportParameterAttribute(classStr(Writtenjobs_Contract))]
+class Writtenjobs_DataProvider extends SRSReportDataProviderBase
+{
+    Writtenjobs_tmpTable tmpTable;
+
+        [SRSReportDataSetAttribute(tableStr(Writtenjobs_tmpTable))]
+    public Writtenjobs_tmpTable getTmpTable()
+    {
+        select tmpTable;
+        return tmpTable;
+    }
+
+    public void processReport()
+    {
+        Writtenjobs_Contract contract = this.parmDataContract() as Writtenjobs_Contract;
+        DirPartyRecId workerPartyRecId = contract.parmWorkerName();
+       
+        DirPersonName nameRec;
+        HcmWorker worker;
+        DirPerson person;
+        HcmPersonPrivateDetails privateDetails;
+        HcmPersonIdentificationNumber idNumber;
+        HcmWorkerTitle workerTitle;
+        HcmTitle title;
+        HcmPositionWorkerAssignment workerAssign, managerAssign;
+        HcmWorker managerWorker;
+        DirPerson managerPerson;
+
+        HcmDiscussion discussion;
+        HcmDiscussionType discussionType;
+        HcmMeasurementLinks links;
+        HcmMeasurementDetail measurementDetail;
+        HcmGoal goal;
+        HcmPerfPeriod perfPeriod;
+
+        str rate;
+        ////
+        HcmTopicRating      topicRating;
+        HcmTopicRef         topicRef;
+        HcmRatingLevel      ratingLevel;
+        CSParameters  parameter ;
+
+        parameter = CSParameters::find()  ;
+        
+        ///
+        
+        delete_from tmpTable;
+
+       
+        select firstOnly worker
+            where worker.Person == workerPartyRecId;
+
+        if (!worker) return;
+
+       
+        select firstOnly person
+            where person.RecId == worker.Person;
+
+        if (!person) return;
+
+      
+        select firstOnly nameRec
+            where nameRec.Person == person.RecId;
+
+
+        select firstOnly privateDetails where privateDetails.Person == person.RecId;
+        select firstOnly idNumber where idNumber.Person == person.RecId;
+
+        select firstOnly workerTitle where workerTitle.Worker == worker.RecId;
+        if (workerTitle)
+            select firstOnly title where title.RecId == workerTitle.Title;
+
+        select firstOnly workerAssign where workerAssign.Worker == worker.RecId;
+        if (workerAssign)
+        {
+            HcmPositionRecId parentPosition = HcmPosition::getReportsToPosition(workerAssign.Position);
+            select firstOnly managerAssign where managerAssign.Position == parentPosition;
+
+            if (managerAssign)
+            {
+                select firstOnly managerWorker where managerWorker.RecId == managerAssign.Worker;
+                select firstOnly managerPerson where managerPerson.RecId == managerWorker.Person;
+            }
+        }
+
+       
+        while select discussion
+    where discussion.Worker == worker.RecId
+            join discussionType
+    where discussionType.RecId == discussion.DiscussionType
+            && discussionType.Description == parameter.Writtenjobs 
+        {
+            perfPeriod = HcmPerfPeriod::find(discussion.PerfPeriod);
+
+            while select topicRef
+        where topicRef.ParentRecId   == discussion.RecId
+           && topicRef.ParentTableId == discussion.TableId
+    join topicRating
+        where topicRating.TopicRefRecId == topicRef.RecId
+            {
+                tmpTable.clear();
+
+                ratingLevel = HcmRatingLevel::find(topicRating.ManagerRating);
+
+              //  rate = ratingLevel.RatingLevelId; //return number of rating 
+                rate = ratingLevel.Description; //return name of rating
+
+
+                tmpTable.CS_Name        = nameRec.FirstName + " " + nameRec.LastName;
+                tmpTable.CS_RecordNum   = worker.RecordNum;
+                tmpTable.CS_FileNum     = worker.FileNum;
+                tmpTable.CS_ProCodeEDT  = worker.InventLocationName();
+                tmpTable.CS_Education   = privateDetails.Education;
+                tmpTable.CS_BirthDate   = privateDetails.BirthDate;
+                tmpTable.CS_IdentificationNumber = idNumber.IdentificationNumber;
+                tmpTable.CS_Title       = title.TitleId;
+                tmpTable.CS_Position    = managerPerson.Name;
+
+                tmpTable.CS_Description =
+            HcmTopicRef::findTopicDescription(topicRating.TopicRefRecId);
+
+                tmpTable.CSName_Worker =
+            nameRec.FirstName + " " + nameRec.LastName;
+
+            ////////////////////////////
+            str periodId = strLTrim(strRTrim(perfPeriod.PerfPeriodId));
+
+                if (periodId == parameter.FirstPeriod)
+            {
+                tmpTable.StartDateFrist = perfPeriod.StartDate;
+                tmpTable.EndDateFrist   = perfPeriod.EndDate;
+            }
+                else if (periodId == parameter.SecondPeriod)
+            {
+                tmpTable.StartDateSecond = perfPeriod.StartDate;
+                tmpTable.EndDateSecond   = perfPeriod.EndDate;
+            }
+
+            /////////////////////
+            // الفترة الأولى
+                if (perfPeriod && perfPeriod.PerfPeriodId == parameter.FirstPeriod)
+            {
+                tmpTable.CS_Firstperiod = rate;
+                //tmpTable.StartDateFrist = perfPeriod.StartDate;
+                //tmpTable.EndDateFrist   = perfPeriod.EndDate;
+                if (rate == "ممتاز") tmpTable.CS_ExcellentFristt = 9;
+                else if (rate == "كفء") tmpTable.CS_competentFristt = 8;
+                else if (rate == "فوق المتوسط") tmpTable.CS_aboveaverageFristt = 7;
+                else if (rate == "متوسط") tmpTable.CS_averageFristt = 6;
+                else if (rate == "ضعيف") tmpTable.CS_weakFristt = 5;
+            }
+
+            // الفترة الثانية
+                if (perfPeriod && perfPeriod.PerfPeriodId == parameter.SecondPeriod)
+                {
+                    tmpTable.CS_secondperiod = rate;
+                    //tmpTable.StartDateSecond = perfPeriod.StartDate;
+                    // tmpTable.EndDateSecond   = perfPeriod.EndDate;
+
+                    if (rate == "ممتاز") tmpTable.CS_ExcellentSecondd = 9;
+                    else if (rate == "كفء") tmpTable.CS_competentSecondd = 8;
+                    else if (rate == "فوق المتوسط") tmpTable.CS_aboveaverageSecondd = 7;
+                    else if (rate == "متوسط") tmpTable.CS_averageSecondd = 6;
+                    else if (rate == "ضعيف") tmpTable.CS_weakSecondd = 5;
+                    /////////
+                
+                    ///////
+
+
+                }
+                tmpTable.insert();
+
+            }
+           // tmpTable.insert();
+
+            }
+
+           
+        }
+
+}
