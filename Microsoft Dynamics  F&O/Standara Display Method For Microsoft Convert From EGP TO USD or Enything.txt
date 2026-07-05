@@ -1,0 +1,48 @@
+
+[ExtensionOf(tableStr(EntAssetObjectTable))]
+final class EntAssetObjectTable_Extension
+{
+    public display Amount displayUSDAmount()
+    {
+        ExchangeRateCurrencyPair exchangeRateCurrencyPair;
+        ExchangeRate             exchangeRate;
+        CurrencyExchangeRate     displayRate;
+        Amount                   usdAmount = 0;
+        date                     acqDate;
+
+        acqDate = this.AcquisitionDate;
+
+        // USD to EGP
+        select firstOnly exchangeRateCurrencyPair
+            where exchangeRateCurrencyPair.FromCurrencyCode == 'USD'
+               && exchangeRateCurrencyPair.ToCurrencyCode   == 'EGP';
+
+        if (exchangeRateCurrencyPair)
+        {
+            select validTimeState(acqDate) exchangeRate
+                where exchangeRate.ExchangeRateCurrencyPair == exchangeRateCurrencyPair.RecId
+                   && exchangeRate.ValidFrom == acqDate;
+
+            if (exchangeRate.RecId)
+            {
+               
+                displayRate =
+                    //use the standarad dispaly method for microsoft to take real ExchangeRateFactor not 1000
+                    CurrencyEuroDenomination::displayStoredExchangeRate_Static(
+                        exchangeRate.ExchangeRate,
+                        exchangeRateCurrencyPair.ExchangeRateDisplayFactor);
+
+              //info(strFmt("Stored Rate = %1", exchangeRate.ExchangeRate));
+             // info(strFmt("Display Rate = %1", displayRate)); 
+
+                if (displayRate != 0)
+                {
+                    usdAmount = this.AcquisitionCost / displayRate;
+                }
+            }
+        }
+
+        return usdAmount;
+    }
+
+}
