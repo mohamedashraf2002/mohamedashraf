@@ -1,0 +1,40 @@
+  display str 50 CSLastSignOffStatus()
+  {
+      HcmDiscussionSignOff signOff;
+
+      select firstOnly reverse signOff
+      order by SignOffDateTime
+      where signOff.Discussion == this.RecId
+         && signOff.SignOffDateTime != DateTimeUtil::minValue();
+
+      return signOff.SignOffStatus;
+  }                                                                                                                                            convert to store in table in this filed 
+
+
+
+[ExtensionOf(tableStr(HcmDiscussionSignOff))]
+final class HcmDiscussionSignOff_Extension
+{
+    public void update()
+    {
+        HcmDiscussion        discussion;
+        HcmDiscussionSignOff signOff;
+
+        next update();
+
+        select firstOnly forUpdate discussion
+            where discussion.RecId == this.Discussion;
+
+        if (discussion)
+        {
+            select firstOnly reverse signOff
+                order by SignOffDateTime
+                where signOff.Discussion == discussion.RecId
+                   && signOff.SignOffDateTime != DateTimeUtil::minValue();
+
+            discussion.SignOff = signOff.SignOffStatus;
+            discussion.update();
+        }
+    }
+
+}
