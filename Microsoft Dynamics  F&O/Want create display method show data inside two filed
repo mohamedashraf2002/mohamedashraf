@@ -1,0 +1,129 @@
+Want create display method show data inside two filed if has same values of Journal_ID                                 the first filed (Header) is  
+
+ Data Source is InventJournalTable (InventJournalTable) 
+
+Data field is JournalId 
+
+The two filed in line want make display method  
+
+The First filed  
+
+DataSource 
+            
+InventJournalTrans (InventJournalTrans) 
+
+Data field 
+
+ItemId  
+
+The second filed (Product Name)take from display method  
+
+Data Source is InventJournalTrans (InventJournalTrans) 
+
+The display method is    
+
+display public ItemNameDisplay itemName() 
+
+  { return InventTable::find(this.ItemId).itemName(this.inventDim());  } 
+
+The relastionship between table InventJournalTable and InventJournalTrans is InventJournalTrans.JournalId == InventJournalTable.JournalId                                                                                           
+
+ 
+
+انا كده عايز اعرض داتا الى جوه فلدين ولكن الى ليهم نفس ايتم ده واحد جوه داتا سورس وتانى بيجي من دسبلى ميثود     
+///////////////////////////////////////////////////////////////////////the code 
+[ExtensionOf(tableStr(InventJournalTable))] 
+
+final class InventJournalTrans_Extension 
+
+{ 
+
+    public display str CSAllItemIds() 
+
+    { 
+
+        InventJournalTrans inventJournalTrans; 
+
+        str result = ''; 
+
+        boolean first = true; 
+
+        while select ItemId from inventJournalTrans 
+
+            where inventJournalTrans.JournalId == this.JournalId 
+
+        { 
+
+            //if not ferist values add , 
+
+            if (!first) 
+
+            { 
+
+                result += ', '; 
+
+            } 
+
+            result += inventJournalTrans.ItemId; 
+
+            //frist is false because in second loop  
+
+            first = false; 
+
+        } 
+
+        return result; 
+
+    } 
+
+    public display str ProductNames() 
+
+    { 
+
+        InventJournalTrans inventJournalTrans; 
+
+        str result = ''; 
+
+        boolean first = true; 
+
+        //List productNames = new List(Types::String); 
+
+        while select ItemId from inventJournalTrans 
+
+            where inventJournalTrans.JournalId == this.JournalId 
+
+        { 
+
+            if (!first) 
+
+            { 
+
+                result += ', '; 
+
+            } 
+
+            result += InventTable::find( 
+
+                inventJournalTrans.ItemId 
+
+            ).itemName( 
+
+                inventJournalTrans.inventDim() 
+
+            ); 
+
+            first = false; 
+
+        } 
+
+        return result; 
+
+        //method strJoin is make separator for list 
+
+        //return strJoin(productNames, ", "); 
+
+    }  
+
+} 
+
+ 
