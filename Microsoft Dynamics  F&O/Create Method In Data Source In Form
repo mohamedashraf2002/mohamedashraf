@@ -1,0 +1,29 @@
+[Form]
+public class CustomForm extends FormRun
+{
+    [DataSource]
+    class CarTable
+    {
+        public void create(boolean _append = false)
+        {
+            //select old value from the line cursor it 
+            CarTable oldRecord = this.cursor();
+            //store the value of select line 
+            str    previousLineName = oldRecord.Model;
+
+
+            //code Write After Super When Create New line 
+            super(_append);
+
+       // here after add new line  select the new line and add the value inside it 
+            CarTable newRecord = this.cursor();
+            if (previousLineName)
+            {
+                newRecord.Model = previousLineName;
+                
+            }
+        }
+
+    }
+
+}
